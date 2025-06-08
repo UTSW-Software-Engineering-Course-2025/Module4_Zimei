@@ -1,0 +1,67 @@
+function [labels, mu, sigma2, mixtureProb, membershipProbMat] = fitGMM_1d_template(x, K)
+% fitGMM_1d implements 1-dim Gaussian Mixture Modeling.
+
+% Iteration params
+maxIter = 500;
+logL = nan(1, maxIter);
+emtol = 1e-9; 
+
+% Define objects
+x = x(:);
+N = length(x);
+labels = nan(N, 1);
+mu = nan(1, K);
+sigma2 = nan(1, K);
+mixtureProb = nan(1, K); 
+l = nan(N, 1);
+
+% Set random initial values
+mu = rand(1,K) * max(x);
+sigma2 = rand(1,K) * max(x)+1e-6;
+mixtureProb = rand(1,K);
+mixtureProb = mixtureProb / sum(mixtureProb);
+
+
+
+% EM iteration
+for iter = 1:maxIter
+    % E-step
+    likelihood_per = zeros(N,K);
+    for k = 1:K
+        likelihood_per(:,k) = mixtureProb(k) * normpdf(x, mu(k),sqrt(sigma2(k)));
+    end
+    likelihood_tot = sum(likelihood_per,2);
+    logL(iter) = sum(log(likelihood_tot));
+    responsiblities = likelihood_per ./ likelihood_tot;
+
+    
+    
+
+    % M-step
+    Nk = sum(responsiblities,1);
+    mixtureProb = Nk/N;
+    mu = sum(responsiblities .* x,1)./ Nk;
+    
+    % varaince calculation
+    for i = 1:K
+        diff_sq = (x-mu(i)).^2;
+        sigma2 =sum(responsiblities(:,i) .* diff_sq)./Nk;
+    end
+    sigma2 = max(sigma2,1e-6);
+    % Terminate if converged
+    if iter > 1
+        deltaLogL = abs((logL(iter) - logL(iter-1)) /  logL(iter-1));
+        if deltaLogL < emtol; disp(iter); disp(logL(iter)); break; end
+    end
+end
+
+% Determine memberships
+
+membershipProbMat = responsiblities;
+[~,labels] = max(membershipProbMat,[],2);
+
+
+
+
+
+end
